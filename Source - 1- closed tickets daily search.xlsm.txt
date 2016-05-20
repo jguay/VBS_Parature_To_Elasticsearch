@@ -1,0 +1,87 @@
+' Created by Julien Guay
+' Code will open IE, login to parature with saved credentials, then run a search for closed tickets for one day and save as html page, then move on to next day
+' recommendation to set parature "My Settings" to value 500 for parameter "Default page Size for List View"
+' code will only be able to save 500 records per query - you may need to filter query further if more than 500 tickets are closed daily in your organization
+
+
+Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long) 'ptrsafe required when running from 64bit machine
+
+' References to add for early binding:
+' Microsoft XML, v6.0
+' Microsoft Internet Controls
+' Microsoft HTML Object Library
+
+' Parature password is saved in the login page
+
+Sub IEcopyincidentlist()
+
+ Dim IE As New InternetExplorer
+ Dim htmldoc As MSHTML.HTMLDocument
+ 
+    ' Create InternetExplorer Object
+    ' Set IE = CreateObject("InternetExplorer.Application")
+ 
+    ' Next line controls if IE should be visible
+    IE.Visible = True
+ 
+    ' Send the form data To URL As POST binary request
+    IE.Navigate "https://s3.parature.com/ics/service/loginSQL.asp"
+ 
+     ' Wait while IE loading...
+    Do While IE.Busy
+        Sleep 1000
+    Loop
+ 
+ Set htmldoc = IE.Document
+ 
+ 'if this is the login page, click on login
+If Right(htmldoc.Title, 16) = "Software - Login" Then
+ For Each ieform In IE.Document.forms
+  ieform.submit
+  Exit For
+ Next
+End If
+ 
+ Set htmldoc = Nothing
+ 
+    ' Wait while IE re-loading...
+    Do While IE.Busy
+        Sleep 1000
+    Loop
+
+ Dim oHttp As New MSXML2.XMLHTTP
+ Dim sHTML As String
+ 
+Dim DateAnalyzed As Date
+
+' code in Microsoft Excel relates to Range - one cell called startdate contains start range
+DateAnalyzed = Range("startdate")
+
+Do While DateAnalyzed < Now()
+ 
+    DateAnalyzedEncoded = Day(DateAnalyzed) & "%2F" & Month(DateAnalyzed) & "%2F" & Year(DateAnalyzed)
+    
+    URLClosed = "https://s3.parature.com/ics/tt/ticketList.asp?isTicketSearchPage=1&last=-1&filter_created_begin=&filter_created_end=" & _
+"&last_updated=6&filter_updated_begin=" & DateAnalyzedEncoded & "&filter_updated_end=" & DateAnalyzedEncoded & "&filter_sla=All&filter_mine=All&filter_status=GroupResolved&fil" & _
+"ter_am=&filter_sam=&filter_hfc=&filter_entered=&filter_tech=All&filter_product=All&FIELD_125533_TEXT_varchar=&FIELD_125534_TEXTARE" & _
+"A_varchar=&FIELD_152318_DROPDOWN_null=&FIELD_131091_DROPDOWN_null=&FIELD_136563_TEXT_varchar=&FIELD_152274_DROPDOWN_null=&FIELD_1522" & _
+"75_TEXTAREA_varchar=&FIELD_152277_TEXT_varchar=&FIELD_152279_TEXT_varchar=&FIELD_152281_CHECKBOX_int=&FIELD_125530_DROPDOWN_null=&FIELD_125" & _
+"532_DROPDOWN_null=&FIELD_132787_DROPDOWN_null=&FIELD_136488_DROPDOWN_null=&FIELD_136489_DROPDOWN_null=&FIELD_128786_DROPDOWN_null=&FIELD_130" & _
+"036_TEXTAREA_varchar=&FIELD_131038_TEXT_varchar=&FIELD_139509_TEXT_varchar=&FIELD_151027_DROPDOWN_null=&FIELD_151026_DROPDOWN_null=&FIELD_15" & _
+"2284_DROPDOWN_null=&FIELD_128566_DROPDOWN_null=&FIELD_128567_TEXTAREA_varchar=&filter_history="
+
+    IE.Navigate URLClosed
+        Do While IE.Busy
+        Sleep 1000
+    Loop
+    Sleep 1000 ' wait another second just in case
+ DoEvents
+    Set htmldoc = IE.Document
+    
+    Open ThisWorkbook.Path & "\" & Replace(DateAnalyzed, "/", "-") & ".html" For Output As #1
+    Write #1, htmldoc.DocumentElement.outerHTML
+    Close #1
+    DateAnalyzed = DateAnalyzed + 1
+Loop
+
+End Sub
